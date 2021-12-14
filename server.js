@@ -299,7 +299,7 @@ app.post("/userAddItem", function(req, res){
       Profile.find({email: emailKey}, function(err, user){
         // create a new unfilled order
         const order = new Order({
-          userName: user[0].name,
+          userName: user[0].first + " " + user[0].last,
           userEmail: user[0].email,
           vendorName: venName,
           vendorEmail: venEmail,
