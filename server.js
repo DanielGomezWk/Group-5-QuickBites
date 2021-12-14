@@ -643,13 +643,25 @@ app.post("/adminRemove", function(req, res){
     if (err) console.log(err);
     else {
       // delete their menu
-      Menu.remove({email: req.body.vendorEmail}, function(err, vendor){
+      Menu.remove({vendorEmail: req.body.vendorEmail}, function(err, vendor){
         if (err) console.log(err);
         else {
           // delete all their tickets
-          Ticket.deleteMany({email: req.body.vendorEmail}, function(err, vendor){
+          Ticket.deleteMany({ownerEmail: req.body.vendorEmail}, function(err, vendor){
             if (err) console.log(err);
-            else res.redirect("/adminHome");
+            else {
+              // delete all user tickets relating to them
+              Ticket.deleteMany({receiverEmail: req.body.vendorEmail}, function(err, user){
+                if (err) console.log(err);
+                else {
+                  // delete all orders relationg to the vendor
+                  Order.deleteMany({vendorEmail: req.body.vendorEmail}, function(err, order){
+                    if (err) console.log(err);
+                    else res.redirect("/adminHome");
+                  });
+                }
+              });
+            }
           });
         }
       });
