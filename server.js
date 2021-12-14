@@ -318,6 +318,10 @@ app.post("/userAddItem", function(req, res){
           specialRequest: ""
         });
         order.save();
+           Profile.find({email: venEmail}, function(err, ven){
+              if (err) console.log(err);
+              else res.redirect("/menuPage/" + ven[0].id);
+            });
       });
     }
     else {
