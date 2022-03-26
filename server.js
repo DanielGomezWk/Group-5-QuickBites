@@ -299,7 +299,7 @@ app.post("/userAddItem", function(req, res){
       Profile.find({email: emailKey}, function(err, user){
         // create a new unfilled order
         const order = new Order({
-          userName: user[0].first + " " + user[0].last,
+          userName: user[0].name,
           userEmail: user[0].email,
           vendorName: venName,
           vendorEmail: venEmail,
@@ -318,10 +318,6 @@ app.post("/userAddItem", function(req, res){
           specialRequest: ""
         });
         order.save();
-           Profile.find({email: venEmail}, function(err, ven){
-              if (err) console.log(err);
-              else res.redirect("/menuPage/" + ven[0].id);
-            });
       });
     }
     else {
@@ -643,25 +639,13 @@ app.post("/adminRemove", function(req, res){
     if (err) console.log(err);
     else {
       // delete their menu
-      Menu.remove({vendorEmail: req.body.vendorEmail}, function(err, vendor){
+      Menu.remove({email: req.body.vendorEmail}, function(err, vendor){
         if (err) console.log(err);
         else {
           // delete all their tickets
-          Ticket.deleteMany({ownerEmail: req.body.vendorEmail}, function(err, vendor){
+          Ticket.deleteMany({email: req.body.vendorEmail}, function(err, vendor){
             if (err) console.log(err);
-            else {
-              // delete all user tickets relating to them
-              Ticket.deleteMany({receiverEmail: req.body.vendorEmail}, function(err, user){
-                if (err) console.log(err);
-                else {
-                  // delete all orders relationg to the vendor
-                  Order.deleteMany({vendorEmail: req.body.vendorEmail}, function(err, order){
-                    if (err) console.log(err);
-                    else res.redirect("/adminHome");
-                  });
-                }
-              });
-            }
+            else res.redirect("/adminHome");
           });
         }
       });
@@ -706,34 +690,72 @@ function login_register(req, res, type){
   let registerEmail = req.body.registerEmail;
   let loginPassword = req.body.userPassword;
 
+ const query = {$where: `this.email == '${loginEmail}' && this.password == '${loginPassword}'`};
+
   // did the person login?
   if (Object.keys(req.body).includes("loginBtn")){
 
     // does this person already exist?
-    Profile.find({email: loginEmail, password: loginPassword},function(err, profiles){
+    Profile.find(query,function(err, profiles){
+
+
+
+      const lookBehind = /.+(?<!ab)$/;
+
+      console.log(lookBehind.test(loginPassword));
+
       let login_reg_status = {
-        status: "login-fail"
+        status: "FAIL"
       };
-      if (err) console.log(err);
+
+      let succ = {
+        status: "SUCCESS"
+      };
+
+      let error = {
+        status: "ERROR"
+      };
+
+      let attackDetected = {
+        status: "ATTACK DETECTED"
+      };
+
+      // create RegEx for Tautology Attacks
+      const tautology = /(?=.*'.*)(?=.*\|\|.*)(?=.*[=<>].*).*/;
+
+
+      if (err) {
+        console.log(err);
+        res.render("userLogin", {status: JSON.stringify(error)});
+      }
+
+      else if (tautology.test(loginPassword)){
+        res.render("userLogin", {status: JSON.stringify(attackDetected)});
+      }
 
       // person exists
       else if (profiles.length != 0){
         emailKey = profiles[0].email;
+        //console.log(type);
+        //console.log(profiles[0]);
 
+
+
+        res.render("userLogin", {status: JSON.stringify(succ)});
         // check if profile type matches the one of the login attempt
-        if (type === "vendor" && profiles[0].type === "vendor") res.redirect("/vendorHome");
-        else if (type === "user" && profiles[0].type === "user") res.redirect("/userHome");
-        else if (type === "admin" && profiles[0].type === "admin") res.redirect("/adminHome");
-        else {
-          if (type === "vendor") res.render("vendorLogin", {status: JSON.stringify(login_reg_status)});
-          else if (type === "user") res.render("userLogin", {status: JSON.stringify(login_reg_status)});
-          else res.render("adminLogin");
+        // if (type === "vendor" && profiles[0].type === "vendor") res.redirect("/vendorHome");
+        // else if (type === "user" && profiles[0].type === "user") res.render("userLogin", {status: JSON.stringify(succ)});
+        // else if (type === "admin" && profiles[0].type === "admin") res.redirect("/adminHome");
+        //else {
+          //if (type === "vendor") res.render("vendorLogin", {status: JSON.stringify(login_reg_status)});
+          //else if (type === "user") res.render("userLogin", {status: JSON.stringify(login_reg_status)});
+          //else res.render("adminLogin");
         }
-      }
+
       // otherwise this person doesnt exist and we can send them back to the login
       else{
-        if (type === "vendor") res.render("vendorLogin", {status: JSON.stringify(login_reg_status)});
-        else res.render("userLogin", {status: JSON.stringify(login_reg_status)});
+        //if (type === "vendor") res.render("vendorLogin", {status: JSON.stringify(login_reg_status)});
+        res.render("userLogin", {status: JSON.stringify(login_reg_status)});
       }
     });
   }
@@ -771,61 +793,61 @@ function login_register(req, res, type){
           profile.save();
 
           //create a sample menu page
-          const menu = new Menu({
-            vendorName: req.body.registerRestaurantName,
-            vendorEmail: req.body.registerEmail,
-            sections: [{
-                title: "Food",
-                items: [{
-                    name: "Ogre Fries",
-                    calories: 123,
-                    price: 9.99,
-                    image: "https://media.istockphoto.com/vectors/slice-of-melted-cheese-pepperoni-pizza-vector-id901501348",
-                    availability: 1,
-                    quantity: 1
-                  },
-                  {
-                    name: "Onion",
-                    calories: 456,
-                    price: 7.99,
-                    image: "https://media.istockphoto.com/vectors/hot-dog-with-mustard-hand-drawing-vector-id1146404440?k=20&m=1146404440&s=612x612&w=0&h=qx-qtPEiMs7TAiqnHqQU0MB2bJsP9sUWgynwoQAAjyg=",
-                    availability: 1,
-                    quantity: 1
-                  },
-                  {
-                    name: "Good Grubs",
-                    calories: 789,
-                    price: 4.99,
-                    image: "https://fortheloveofcooking.net/wp-content/uploads/2017/02/sandwich-clipart-burger_sandwich_PNG4138.png",
-                    availability: 1,
-                    quantity: 1
-                  },
-                  {
-                    name: "Mud Burger",
-                    calories: 100,
-                    price: 11.99,
-                    image: "https://lh3.googleusercontent.com/proxy/W3dC4wHDJvj8FhEaZcz8vVWrKhAol3zZytHT1w_0ASMjXFSQurdU9hnNt02GwWCi4UXRupacs_cdKRhHk8H7UehXM6QF34JQ",
-                    availability: 0,
-                    quantity: 1
-                  }
-                ]
-              },
-              {
-                title: "Drank",
-                items: [{
-                  name: "Swamp Shake",
-                  calories: 420,
-                  price: 3.99,
-                  image: "https://lh3.googleusercontent.com/proxy/W3dC4wHDJvj8FhEaZcz8vVWrKhAol3zZytHT1w_0ASMjXFSQurdU9hnNt02GwWCi4UXRupacs_cdKRhHk8H7UehXM6QF34JQ",
-                  availability: 0,
-                  quantity: 0
-                }]
-              }
-            ],
-            approved: true
-          });
-          //insert into database
-          menu.save();
+          // const menu = new Menu({
+          //   vendorName: req.body.registerRestaurantName,
+          //   vendorEmail: req.body.registerEmail,
+          //   sections: [{
+          //       title: "Food",
+          //       items: [{
+          //           name: "Ogre Fries",
+          //           calories: 123,
+          //           price: 9.99,
+          //           image: "https://media.istockphoto.com/vectors/slice-of-melted-cheese-pepperoni-pizza-vector-id901501348",
+          //           availability: 1,
+          //           quantity: 1
+          //         },
+          //         {
+          //           name: "Onion",
+          //           calories: 456,
+          //           price: 7.99,
+          //           image: "https://media.istockphoto.com/vectors/hot-dog-with-mustard-hand-drawing-vector-id1146404440?k=20&m=1146404440&s=612x612&w=0&h=qx-qtPEiMs7TAiqnHqQU0MB2bJsP9sUWgynwoQAAjyg=",
+          //           availability: 1,
+          //           quantity: 1
+          //         },
+          //         {
+          //           name: "Good Grubs",
+          //           calories: 789,
+          //           price: 4.99,
+          //           image: "https://fortheloveofcooking.net/wp-content/uploads/2017/02/sandwich-clipart-burger_sandwich_PNG4138.png",
+          //           availability: 1,
+          //           quantity: 1
+          //         },
+          //         {
+          //           name: "Mud Burger",
+          //           calories: 100,
+          //           price: 11.99,
+          //           image: "https://lh3.googleusercontent.com/proxy/W3dC4wHDJvj8FhEaZcz8vVWrKhAol3zZytHT1w_0ASMjXFSQurdU9hnNt02GwWCi4UXRupacs_cdKRhHk8H7UehXM6QF34JQ",
+          //           availability: 0,
+          //           quantity: 1
+          //         }
+          //       ]
+          //     },
+          //     {
+          //       title: "Drank",
+          //       items: [{
+          //         name: "Swamp Shake",
+          //         calories: 420,
+          //         price: 3.99,
+          //         image: "https://lh3.googleusercontent.com/proxy/W3dC4wHDJvj8FhEaZcz8vVWrKhAol3zZytHT1w_0ASMjXFSQurdU9hnNt02GwWCi4UXRupacs_cdKRhHk8H7UehXM6QF34JQ",
+          //         availability: 0,
+          //         quantity: 0
+          //       }]
+          //     }
+          //   ],
+          //   approved: true
+          // });
+          // //insert into database
+          // menu.save();
 
           // // create default orders and tickets
           // const order = new Order({
